@@ -41,73 +41,51 @@
     Dica: você pode acessar direto a API em <code>/api/aeronave?marca=PPXXX</code> (JSON).
   </div>
 
-  <script>
-    const el = (id) => document.getElementById(id);
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const $ = (id) => document.getElementById(id);
 
-    function setStatus(msg) {
-      const s = el("status");
-      s.style.display = "block";
-      s.textContent = msg;
+    const btn = $("btn");
+    if (!btn) {
+      console.error("Botão #btn não encontrado. Confira o id do botão no HTML.");
+      return;
     }
 
-    function escapeHtml(str) {
-      return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
+    btn.addEventListener("click", async () => {
+      const marca = ($("marca")?.value || "").trim().toUpperCase();
+      if (!marca) { $("status").textContent = "Digite uma matrícula (ex.: PPXXX)"; return; }
 
-    async function consultar() {
-      const marca = el("marca").value.trim().toUpperCase().replace(/\s+/g, "");
-      el("out").innerHTML = "";
-      el("xls").style.display = "none";
+      $("status").textContent = "Consultando...";
+      $("out").innerHTML = "";
+      $("xls").style.display = "none";
 
-      if (!marca) {
-        setStatus("Informe uma matrícula.");
-        return;
+      try {
+        const r = await fetch(`/api/aeronave?marca=${encodeURIComponent(marca)}`);
+        const j = await r.json();
+
+        if (j.error) throw new Error(j.error);
+
+        $("status").textContent = `OK — ${j.marca}`;
+
+        const rows = Object.entries(j.fields || {})
+          .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
+          .join("");
+
+        $("out").innerHTML = `
+          <table>
+            <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="2">Nenhum dado encontrado</td></tr>`}</tbody>
+          </table>
+        `;
+
+        $("xls").href = `/api/aeronave.xlsx?marca=${encodeURIComponent(marca)}`;
+        $("xls").style.display = "inline-block";
+      } catch (e) {
+        console.error(e);
+        $("status").textContent = "Falhou: " + (e?.message || e);
       }
-
-      setStatus("Consultando…");
-
-      const r = await fetch(`/api/aeronave?marca=${encodeURIComponent(marca)}`);
-      if (!r.ok) {
-        const txt = await r.text();
-        setStatus(`Erro (${r.status}): ${txt}`);
-        return;
-      }
-
-      const j = await r.json();
-
-      const entries = Object.entries(j.fields || {});
-      if (entries.length === 0) {
-        setStatus("Nenhum dado retornado para essa matrícula.");
-        return;
-      }
-
-      setStatus(`OK — ${j.marca} (consultado em ${new Date(j.consultado_em).toLocaleString()})`);
-
-      const rows = entries
-        .map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`)
-        .join("");
-
-      el("out").innerHTML = `
-        <table>
-          <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
-
-      const xls = el("xls");
-      xls.href = `/api/aeronave.xlsx?marca=${encodeURIComponent(marca)}`;
-      xls.style.display = "inline-block";
-    }
-
-    el("btn").addEventListener("click", consultar);
-    el("marca").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") consultar();
     });
-  </script>
+  });
+</script>
 </body>
 </html>
