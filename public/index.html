@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Consulta RAB (ANAC) • Matrícula → Excel</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; max-width: 1040px; }
+    h1 { margin: 0 0 8px; }
+    .muted { color: #555; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    input, button, a.btn {
+      padding: 10px 12px; font-size: 16px; border-radius: 10px;
+      border: 1px solid #ccc; background: #fff;
+    }
+    button { cursor: pointer; }
+    a.btn { text-decoration: none; display: inline-block; }
+    .status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #f6f6f6; border: 1px solid #e6e6e6; }
+    table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+    td, th { border: 1px solid #e2e2e2; padding: 10px 10px; vertical-align: top; }
+    th { text-align: left; background: #fafafa; }
+    code { background: #f0f0f0; padding: 2px 6px; border-radius: 6px; }
+    .footer { margin-top: 24px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Consulta RAB (ANAC)</h1>
+  <div class="muted">Digite a matrícula (ex.: <code>PPXDC</code>), consulte e exporte para Excel.</div>
+
+  <div class="row">
+    <input id="marca" placeholder="Matrícula (PPXXX)" autocomplete="off" spellcheck="false" />
+    <button id="btn">Consultar</button>
+    <a id="xls" class="btn" href="#" style="display:none">Exportar Excel</a>
+  </div>
+
+  <div id="status" class="status" style="display:none"></div>
+  <div id="out"></div>
+
+  <div class="footer muted">
+    Dica: você pode acessar direto a API em <code>/api/aeronave?marca=PPXXX</code> (JSON).
+  </div>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+
+    function setStatus(msg) {
+      const s = el("status");
+      s.style.display = "block";
+      s.textContent = msg;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function consultar() {
+      const marca = el("marca").value.trim().toUpperCase().replace(/\s+/g, "");
+      el("out").innerHTML = "";
+      el("xls").style.display = "none";
+
+      if (!marca) {
+        setStatus("Informe uma matrícula.");
+        return;
+      }
+
+      setStatus("Consultando…");
+
+      const r = await fetch(`/api/aeronave?marca=${encodeURIComponent(marca)}`);
+      if (!r.ok) {
+        const txt = await r.text();
+        setStatus(`Erro (${r.status}): ${txt}`);
+        return;
+      }
+
+      const j = await r.json();
+
+      const entries = Object.entries(j.fields || {});
+      if (entries.length === 0) {
+        setStatus("Nenhum dado retornado para essa matrícula.");
+        return;
+      }
+
+      setStatus(`OK — ${j.marca} (consultado em ${new Date(j.consultado_em).toLocaleString()})`);
+
+      const rows = entries
+        .map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`)
+        .join("");
+
+      el("out").innerHTML = `
+        <table>
+          <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      const xls = el("xls");
+      xls.href = `/api/aeronave.xlsx?marca=${encodeURIComponent(marca)}`;
+      xls.style.display = "inline-block";
+    }
+
+    el("btn").addEventListener("click", consultar);
+    el("marca").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") consultar();
+    });
+  </script>
+</body>
+</html>
