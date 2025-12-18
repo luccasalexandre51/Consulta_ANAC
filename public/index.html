@@ -40,24 +40,31 @@
   <div class="footer muted">
     Dica: você pode acessar direto a API em <code>/api/aeronave?marca=PPXXX</code> (JSON).
   </div>
-
 <script>
   window.addEventListener("DOMContentLoaded", () => {
     const $ = (id) => document.getElementById(id);
 
     const btn = $("btn");
-    if (!btn) {
-      console.error("Botão #btn não encontrado. Confira o id do botão no HTML.");
-      return;
-    }
+    if (!btn) return;
 
     btn.addEventListener("click", async () => {
-      const marca = ($("marca")?.value || "").trim().toUpperCase();
-      if (!marca) { $("status").textContent = "Digite uma matrícula (ex.: PPXXX)"; return; }
+      const statusEl = $("status");
+      const outEl = $("out");
+      const xlsEl = $("xls");
 
-      $("status").textContent = "Consultando...";
-      $("out").innerHTML = "";
-      $("xls").style.display = "none";
+      const marca = ($("marca")?.value || "").trim().toUpperCase();
+
+      // sempre mostra a área de status quando houver mensagem
+      statusEl.style.display = "block";
+
+      if (!marca) {
+        statusEl.textContent = "Digite uma matrícula (ex.: PPXXX)";
+        return;
+      }
+
+      statusEl.textContent = "Consultando...";
+      outEl.innerHTML = "";
+      xlsEl.style.display = "none";
 
       try {
         const r = await fetch(`/api/aeronave?marca=${encodeURIComponent(marca)}`);
@@ -65,24 +72,24 @@
 
         if (j.error) throw new Error(j.error);
 
-        $("status").textContent = `OK — ${j.marca}`;
+        statusEl.textContent = `OK — ${j.marca}`;
 
         const rows = Object.entries(j.fields || {})
           .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
           .join("");
 
-        $("out").innerHTML = `
+        outEl.innerHTML = `
           <table>
             <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
             <tbody>${rows || `<tr><td colspan="2">Nenhum dado encontrado</td></tr>`}</tbody>
           </table>
         `;
 
-        $("xls").href = `/api/aeronave.xlsx?marca=${encodeURIComponent(marca)}`;
-        $("xls").style.display = "inline-block";
+        xlsEl.href = `/api/aeronave.xlsx?marca=${encodeURIComponent(marca)}`;
+        xlsEl.style.display = "inline-block";
       } catch (e) {
         console.error(e);
-        $("status").textContent = "Falhou: " + (e?.message || e);
+        statusEl.textContent = "Falhou: " + (e?.message || e);
       }
     });
   });
